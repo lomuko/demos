@@ -1,0 +1,18 @@
+import org.springframework.ai.ollama.OllamaChatModel;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1")
+public class ChatController {
+
+    private final OllamaChatModel chatModel;
+
+    public ChatController(OllamaChatModel chatModel) {
+        this.chatModel = chatModel;
+    }
+
+    @GetMapping("/chat")
+    public String askAi(@RequestParam String message) {
+        return chatModel.call(message);
+    }
+}
