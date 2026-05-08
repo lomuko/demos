@@ -8,7 +8,6 @@ group = 'es.lomuko'
 version = '0.0.1-SNAPSHOT'
 
 java {
-	sourceCompatibility = '17'
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(17)
 	}
@@ -20,7 +19,7 @@ repositories {
 }
 
 ext {
-	set('springAiVersion', "2.0.0-M5")
+	springAiVersion = "2.0.0-M5"
 }
 
 dependencies {
@@ -28,7 +27,11 @@ dependencies {
 	implementation 'org.springframework.ai:spring-ai-starter-model-ollama'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.boot:spring-boot-test'
+	testImplementation 'org.springframework.boot:spring-boot-test-autoconfigure'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'io.projectreactor:reactor-test'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
