@@ -123,6 +123,3 @@ All data stays on **this browser** and origin; clearing site data removes it.
 - [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS v4](https://tailwindcss.com/)
 
-## License
-
-This example project does not specify a license; add one in the repository if you redistribute or open-source it.
