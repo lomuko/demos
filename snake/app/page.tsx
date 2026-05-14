@@ -27,8 +27,8 @@ export default function Home() {
         <SnakeGame />
 
         <footer className="mt-10 text-center text-xs text-slate-500">
-          Built with Next.js · High score saved in{" "}
-          <span className="text-slate-400">localStorage</span>
+          Built with Next.js · Themes, board size, and hall of fame live in{" "}
+          <span className="text-slate-400">localStorage</span> on your device
         </footer>
       </div>
     </main>

@@ -41,8 +41,7 @@ type ThemePalette = {
   flash: (alpha: number) => string;
   head0: string;
   head1: string;
-  bodyLo: string;
-  bodyHi: string;
+  snakeBody: (t: number) => readonly [string, string];
   foodCore: string;
   foodGlow: string;
 };
@@ -54,8 +53,11 @@ const THEMES: Record<ThemeId, ThemePalette> = {
     flash: (a) => `rgba(34, 211, 238, ${0.08 * a})`,
     head0: "#ecfeff",
     head1: "#22d3ee",
-    bodyLo: "rgba(6, 182, 212, %t%)",
-    bodyHi: "rgba(8, 145, 178, %t%)",
+    snakeBody: (t) => {
+      const a0 = 0.45 + 0.45 * (1 - t);
+      const a1 = 0.35 + 0.35 * (1 - t);
+      return [`rgba(6, 182, 212, ${a0})`, `rgba(8, 145, 178, ${a1})`] as const;
+    },
     foodCore: "#fbcfe8",
     foodGlow: "rgba(244, 114, 182, 0.9)",
   },
@@ -65,8 +67,11 @@ const THEMES: Record<ThemeId, ThemePalette> = {
     flash: (a) => `rgba(52, 211, 153, ${0.1 * a})`,
     head0: "#ecfdf5",
     head1: "#34d399",
-    bodyLo: "rgba(16, 185, 129, %t%)",
-    bodyHi: "rgba(5, 150, 105, %t%)",
+    snakeBody: (t) => {
+      const a0 = 0.42 + 0.48 * (1 - t);
+      const a1 = 0.32 + 0.38 * (1 - t);
+      return [`rgba(16, 185, 129, ${a0})`, `rgba(5, 150, 105, ${a1})`] as const;
+    },
     foodCore: "#fde68a",
     foodGlow: "rgba(250, 204, 21, 0.85)",
   },
@@ -76,8 +81,11 @@ const THEMES: Record<ThemeId, ThemePalette> = {
     flash: (a) => `rgba(251, 113, 133, ${0.09 * a})`,
     head0: "#fff1f2",
     head1: "#fb7185",
-    bodyLo: "rgba(244, 63, 94, %t%)",
-    bodyHi: "rgba(190, 18, 60, %t%)",
+    snakeBody: (t) => {
+      const a0 = 0.48 + 0.42 * (1 - t);
+      const a1 = 0.38 + 0.36 * (1 - t);
+      return [`rgba(244, 63, 94, ${a0})`, `rgba(190, 18, 60, ${a1})`] as const;
+    },
     foodCore: "#c4b5fd",
     foodGlow: "rgba(167, 139, 250, 0.9)",
   },
@@ -157,6 +165,7 @@ function saveLeaderboard(entries: LeaderEntry[]) {
 }
 
 function qualifiesForLeaderboard(score: number, entries: LeaderEntry[]): boolean {
+  if (score <= 0) return false;
   const ghost: LeaderEntry = {
     id: "__qualify__",
     name: "",
@@ -256,6 +265,15 @@ function formatShortDate(iso: string): string {
   }
 }
 
+type CountdownPhase = "off" | "3" | "2" | "1" | "go";
+
+const COUNTDOWN_MS: Record<Exclude<CountdownPhase, "off">, number> = {
+  "3": 700,
+  "2": 700,
+  "1": 700,
+  go: 550,
+};
+
 export function SnakeGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
@@ -269,6 +287,7 @@ export function SnakeGame() {
     "idle",
   );
   const [playerName, setPlayerName] = useState("");
+  const [countdownPhase, setCountdownPhase] = useState<CountdownPhase>("off");
   const [settings, setSettings] = useState<Settings>({
     wrap: false,
     difficulty: "normal",
@@ -284,13 +303,14 @@ export function SnakeGame() {
   const lastFrameRef = useRef(0);
   const rafRef = useRef<number>(0);
   const eatFlashRef = useRef(0);
-  const gridRef = useRef(BOARD_PRESETS.classic.grid);
-  const cellRef = useRef(BOARD_PRESETS.classic.cell);
+  const gridRef = useRef<number>(BOARD_PRESETS.classic.grid);
+  const cellRef = useRef<number>(BOARD_PRESETS.classic.cell);
+  const leaderSubmitDoneRef = useRef(false);
 
   const { grid: activeGrid, cell: activeCell } = BOARD_PRESETS[settings.boardSize];
   const canvasPx = activeGrid * activeCell;
 
-  const resetGame = useCallback(() => {
+  const prepareRound = useCallback(() => {
     const { grid, cell } = BOARD_PRESETS[settings.boardSize];
     gridRef.current = grid;
     cellRef.current = cell;
@@ -310,11 +330,38 @@ export function SnakeGame() {
     setNewRecord(false);
     setPostGamePhase("idle");
     setPlayerName("");
-    setStarted(true);
+    leaderSubmitDoneRef.current = false;
     tickRef.current = 0;
     lastFrameRef.current =
       typeof performance !== "undefined" ? performance.now() : 0;
   }, [settings.boardSize]);
+
+  const resetGame = useCallback(() => {
+    prepareRound();
+    setStarted(true);
+    setCountdownPhase("3");
+  }, [prepareRound]);
+
+  useEffect(() => {
+    if (countdownPhase === "off") return;
+    const next: Record<Exclude<CountdownPhase, "off">, CountdownPhase> = {
+      "3": "2",
+      "2": "1",
+      "1": "go",
+      go: "off",
+    };
+    const ms = COUNTDOWN_MS[countdownPhase];
+    const t = window.setTimeout(() => {
+      setCountdownPhase(next[countdownPhase]);
+    }, ms);
+    return () => window.clearTimeout(t);
+  }, [countdownPhase]);
+
+  useEffect(() => {
+    if (!started) {
+      setCountdownPhase("off");
+    }
+  }, [started]);
 
   useEffect(() => {
     const lb = loadLeaderboard();
@@ -391,16 +438,9 @@ export function SnakeGame() {
         g.addColorStop(1, theme.head1);
       } else {
         const t = i / Math.max(snake.length - 1, 1);
-        const a0 = 0.45 + 0.45 * (1 - t);
-        const a1 = 0.35 + 0.35 * (1 - t);
-        g.addColorStop(
-          0,
-          theme.bodyLo.replace("%t%", String(Math.round(a0 * 100) / 100)),
-        );
-        g.addColorStop(
-          1,
-          theme.bodyHi.replace("%t%", String(Math.round(a1 * 100) / 100)),
-        );
+        const [c0, c1] = theme.snakeBody(t);
+        g.addColorStop(0, c0);
+        g.addColorStop(1, c1);
       }
       ctx.fillStyle = g;
       ctx.beginPath();
@@ -468,12 +508,12 @@ export function SnakeGame() {
         eatFlashRef.current = 14;
         const nextScore = nextSnake.length - INITIAL_LENGTH;
         setScore(nextScore);
-        setLeaderboard((prevLb) => {
-          const best = prevLb[0]?.score ?? loadHighScore();
-          if (nextScore > best) {
+        setHighScore((prev) => {
+          if (nextScore > prev) {
             setNewRecord(true);
+            saveHighScore(nextScore);
           }
-          return prevLb;
+          return Math.max(prev, nextScore);
         });
         const occ = new Set(nextSnake.map((p) => `${p.x},${p.y}`));
         foodRef.current = randomFood(occ, grid);
@@ -484,7 +524,8 @@ export function SnakeGame() {
     };
 
     const loop = (now: number) => {
-      const playing = started && !gameOver && !paused;
+      const playing =
+        started && !gameOver && !paused && countdownPhase === "off";
       if (playing) {
         tickRef.current += now - lastFrameRef.current;
         while (tickRef.current >= tickMs) {
@@ -501,15 +542,24 @@ export function SnakeGame() {
     lastFrameRef.current = performance.now();
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [started, gameOver, paused, settings.difficulty, settings.wrap, draw]);
+  }, [
+    started,
+    gameOver,
+    paused,
+    countdownPhase,
+    settings.difficulty,
+    settings.wrap,
+    draw,
+  ]);
 
   const submitLeaderName = useCallback(
     (useAnonymous: boolean) => {
+      if (leaderSubmitDoneRef.current) return;
+      leaderSubmitDoneRef.current = true;
       const nameRaw = useAnonymous
         ? "Anonymous"
         : playerName.trim() || "Anonymous";
-      const name =
-        nameRaw.length > 24 ? `${nameRaw.slice(0, 24)}…` : nameRaw;
+      const name = nameRaw.length > 24 ? nameRaw.slice(0, 24) : nameRaw;
       const entry: LeaderEntry = {
         id: crypto.randomUUID(),
         name,
@@ -535,6 +585,17 @@ export function SnakeGame() {
         submitLeaderName(false);
         return;
       }
+
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
       const key = e.key.toLowerCase();
       const map: Record<string, Vec> = {
         arrowup: { x: 0, y: -1 },
@@ -551,10 +612,14 @@ export function SnakeGame() {
         if (!started && !gameOver) {
           resetGame();
         }
-        pendingDirRef.current = map[key];
+        if (!gameOver) {
+          pendingDirRef.current = map[key];
+        }
       } else if (key === " " || key === "p") {
         e.preventDefault();
-        if (started && !gameOver) setPaused((p) => !p);
+        if (started && !gameOver && countdownPhase === "off") {
+          setPaused((p) => !p);
+        }
       } else if (key === "r" && gameOver && postGamePhase !== "naming") {
         e.preventDefault();
         resetGame();
@@ -562,7 +627,14 @@ export function SnakeGame() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [started, gameOver, resetGame, postGamePhase, submitLeaderName]);
+  }, [
+    started,
+    gameOver,
+    resetGame,
+    postGamePhase,
+    submitLeaderName,
+    countdownPhase,
+  ]);
 
   const difficultyBtn = (d: Difficulty, label: string) => (
     <button
@@ -660,13 +732,33 @@ export function SnakeGame() {
           aria-label="Snake game board"
         />
 
+        {started && !gameOver && countdownPhase !== "off" && (
+          <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center rounded-2xl bg-slate-950/55 backdrop-blur-[2px]">
+            <p
+              className={`font-semibold tracking-tight text-white tabular-nums drop-shadow-[0_0_24px_rgba(34,211,238,0.45)] ${
+                countdownPhase === "go"
+                  ? "text-5xl sm:text-6xl"
+                  : "text-6xl sm:text-8xl"
+              }`}
+            >
+              {countdownPhase === "go" ? "GO!" : countdownPhase}
+            </p>
+            <p className="mt-6 max-w-[240px] text-center text-[11px] leading-relaxed text-slate-300">
+              Get your hands on the keyboard — the snake starts moving right after
+              GO.
+            </p>
+          </div>
+        )}
+
         {!started && !gameOver && (
           <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-slate-950/75 px-6 text-center backdrop-blur-sm">
             <p className="text-sm font-medium text-slate-200">Ready?</p>
             <p className="mt-2 max-w-[260px] text-xs leading-relaxed text-slate-400">
-              Press any arrow key or{" "}
-              <span className="text-slate-300">W A S D</span> to start. Eat the
-              glowing orbs. Do not bite yourself
+              Each round starts with{" "}
+              <span className="text-slate-300">3 · 2 · 1 · GO</span> so you can
+              grab the keys. Then steer with arrows or{" "}
+              <span className="text-slate-300">W A S D</span>. Eat the glowing
+              orbs. Do not bite yourself
               {!settings.wrap ? " or the walls" : ""}.
             </p>
             <button
@@ -679,7 +771,7 @@ export function SnakeGame() {
           </div>
         )}
 
-        {paused && started && !gameOver && (
+        {paused && started && !gameOver && countdownPhase === "off" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-slate-950/70 backdrop-blur-sm">
             <p className="text-lg font-semibold text-white">Paused</p>
             <button
@@ -892,8 +984,8 @@ export function SnakeGame() {
       </div>
 
       <p className="mt-4 text-center text-[11px] leading-relaxed text-slate-500">
-        Controls: arrows or WASD · Pause: Space / P · After game over: R to
-        restart (after saving your name)
+        Controls: arrows or WASD (ignored while typing your name) · Pause: Space
+        / P (after GO) · After game over: R to restart (after saving your name)
       </p>
     </div>
   );
