@@ -4,6 +4,8 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 Canvas endless runner at `/`: **Space** to start the **3-2-1-GO** countdown, jump, and retry after game over. Optional sound uses short Web Audio beeps (toggle in the UI). High score is stored in `localStorage`.
 
+`npm run dev` uses **Webpack** instead of Turbopack so the dev server stays within normal RAM/CPU on large machines (Next 16’s default Turbopack dev is known to spike memory and worker threads). Use `npm run dev:turbo` if you explicitly want Turbopack.
+
 ## Getting Started
 
 First, run the development server:
