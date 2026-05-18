@@ -19,9 +19,8 @@ import {
   NIGHT_SCORE_INTERVAL,
 } from "./constants";
 import { drawDinoSprite } from "./sprites";
-import { paletteForTheme, type GameThemeId } from "./themes";
+import { paletteForTheme, type GameThemeId, type RenderPalette } from "./themes";
 import type { Cloud, GameState, Obstacle, ObstacleKind } from "./types";
-import type { RenderPalette } from "./themes";
 
 const DINO_HIT_INSET = 6;
 const OBS_HIT_INSET = 4;
@@ -389,9 +388,11 @@ export function drawGame(
   cssH: number,
   themeId: GameThemeId
 ): void {
-  const scale = Math.min(cssW / GAME_W, cssH / GAME_H);
-  const ox = (cssW - GAME_W * scale) / 2;
-  const oy = (cssH - GAME_H * scale) / 2;
+  const cw = Math.max(1, cssW);
+  const ch = Math.max(1, cssH);
+  const scale = Math.max(1e-4, Math.min(cw / GAME_W, ch / GAME_H));
+  const ox = (cw - GAME_W * scale) / 2;
+  const oy = (ch - GAME_H * scale) / 2;
 
   ctx.save();
   ctx.imageSmoothingEnabled = false;
@@ -451,7 +452,7 @@ export function drawGame(
 
   const spriteScale = Math.min(DINO_W / 22, DINO_H / 26);
   const spriteH = 26 * spriteScale;
-  const dinoDrawY = DINO_FOOT_Y - spriteH;
+  const dinoDrawY = s.dino.y + DINO_H - spriteH;  // ✅ sigue la posición real
   drawDinoSprite(ctx, DINO_X, dinoDrawY, spriteScale, pal, s.dino.grounded, now);
 
   for (const p of s.particles) {
